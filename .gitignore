@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.venv/
+.vercel/
+archivos_generados/*
+!archivos_generados/.gitkeep

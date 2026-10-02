@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sistema de Inventario</title>
+  <style>
+    :root {
+      --bg: #f0f0f0; --panel: #f7f7f7; --card: #fff; --border: #cfcfcf;
+      --text: #222; --muted: #666; --accent: #0067c0; --ok: #1e7e34; --err: #b02a37;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; font-size: 14px; background: var(--bg); color: var(--text); }
+    header { background: #fff; border-bottom: 1px solid var(--border); padding: 10px 16px; font-weight: 600; }
+    main { display: grid; grid-template-columns: 360px 1fr; gap: 16px; padding: 16px; max-width: 1300px; margin: 0 auto; }
+    fieldset { border: 1px solid var(--border); border-radius: 4px; background: var(--panel); padding: 12px 14px; margin: 0; min-width: 0; }
+    legend { color: var(--muted); padding: 0 4px; }
+    .fila { display: grid; grid-template-columns: 130px 1fr; align-items: center; margin-bottom: 8px; }
+    input, select { width: 100%; padding: 5px 7px; border: 1px solid var(--border); border-bottom: 2px solid #999; border-radius: 3px; background: #fff; font: inherit; }
+    input:focus, select:focus { outline: none; border-bottom-color: var(--accent); }
+    .btn { padding: 6px 14px; border: 1px solid var(--border); border-radius: 4px; background: #fff; font: inherit; cursor: pointer; text-decoration: none; color: var(--text); display: inline-block; }
+    .btn:hover { background: #e9f1fb; border-color: var(--accent); }
+    .btn.primario { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .btn.primario:hover { background: #005aa8; }
+    .acciones { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
+    .tipos { display: flex; gap: 16px; margin-bottom: 10px; }
+    .tipos label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+    .tipos input { width: auto; }
+    .resumen { display: grid; gap: 4px; }
+    .resumen div { display: flex; justify-content: space-between; }
+    .resumen b { font-variant-numeric: tabular-nums; }
+    .msg { padding: 8px 12px; border-radius: 4px; margin-bottom: 10px; }
+    .msg.ok { background: #e6f4ea; color: var(--ok); }
+    .msg.error { background: #fbeaec; color: var(--err); }
+    .barra { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .barra input { width: 180px; }
+    .tabla { background: var(--card); border: 1px solid var(--border); overflow-x: auto; min-height: 420px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { font-weight: 400; color: var(--muted); text-align: center; padding: 8px; border-bottom: 1px solid #e3e3e3; border-right: 1px solid #eee; white-space: nowrap; }
+    td { padding: 7px 8px; border-bottom: 1px solid #f0f0f0; text-align: center; white-space: nowrap; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    td.izq { text-align: left; }
+    .vacio { color: var(--muted); padding: 40px; text-align: center; }
+    @media (max-width: 800px) {
+      main { grid-template-columns: 1fr; padding: 16px; }
+      .fila { grid-template-columns: 110px 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>Sistema Modular de Inventario</header>
+  <main>
+    <section>
+      {% with mensajes = get_flashed_messages(with_categories=true) %}
+        {% for categoria, mensaje in mensajes %}
+          <div class="msg {{ categoria }}">{{ mensaje }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <fieldset>
+        <legend>Registro de Productos</legend>
+        <form method="post" action="{{ url_for('agregar') }}">
+          <div class="tipos">
+            <label><input type="radio" name="tipo" value="tecnologico" checked> Tecnológico</label>
+            <label><input type="radio" name="tipo" value="accesorio"> Accesorio</label>
+          </div>
+          <div class="fila"><span>Código:</span><input value="{{ siguiente_codigo }}" disabled></div>
+          <div class="fila"><label for="nombre">Nombre:</label><input id="nombre" name="nombre" required></div>
+          <div class="fila"><label for="categoria">Categoría:</label>
+            <select id="categoria" name="categoria">
+              {% for c in categorias %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="fila"><label for="precio">Precio (S/):</label><input id="precio" name="precio" type="number" min="0" step="0.01" value="0.0" required></div>
+          <div class="fila"><label for="stock">Stock inicial:</label><input id="stock" name="stock" type="number" min="0" step="1" value="0" required></div>
+          <div class="fila" id="campo-garantia"><label for="garantia">Garantía (meses):</label><input id="garantia" name="garantia" type="number" min="0" step="1" value="12"></div>
+          <div class="fila" id="campo-conexion" hidden><label for="conexion">Conexión:</label>
+            <input id="conexion" name="conexion" list="conexiones" placeholder="Inalámbrica / Cableada / USB-C">
+            <datalist id="conexiones"><option value="Inalámbrica"><option value="Cableada"><option value="USB-C"></datalist>
+          </div>
+          <div class="acciones">
+            <button class="btn primario" type="submit">Agregar</button>
+            <button class="btn" type="reset">Limpiar</button>
+          </div>
+        </form>
+
+        <hr>
+
+        <div class="resumen">
+          <div><span>Total de ítems diferentes</span><b>{{ total_items }}</b></div>
+          <div><span>Valor total acumulado</span><b>S/ {{ "%.2f"|format(valor_total) }}</b></div>
+          <div><span>Precio promedio por ítem</span><b>S/ {{ "%.2f"|format(precio_promedio) }}</b></div>
+        </div>
+
+        <hr>
+
+        <div class="acciones">
+          <a class="btn" href="{{ url_for('reporte') }}">Exportar reporte (.txt)</a>
+          <form method="post" action="{{ url_for('vaciar') }}" onsubmit="return confirm('¿Vaciar todo el inventario?')">
+            <button class="btn" type="submit">Vaciar inventario</button>
+          </form>
+        </div>
+      </fieldset>
+    </section>
+
+    <fieldset>
+      <legend>Lista de Productos</legend>
+      <form class="barra" method="get" action="{{ url_for('inicio') }}">
+        <input name="codigo" placeholder="Buscar código (ej. TEC001)" value="{{ busqueda }}">
+        <button class="btn" type="submit">Buscar</button>
+        <a class="btn" href="{{ url_for('inicio', orden='desc') }}">Precio ↓</a>
+        <a class="btn" href="{{ url_for('inicio', orden='asc') }}">Precio ↑</a>
+        <a class="btn" href="{{ url_for('inicio') }}">Ver todos</a>
+      </form>
+      <div class="tabla">
+        <table>
+          <thead>
+            <tr><th>Código</th><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Tipo</th><th>Detalle</th></tr>
+          </thead>
+          <tbody>
+            {% for p in productos %}
+              <tr>
+                <td>{{ p.codigo }}</td>
+                <td class="izq">{{ p.nombre }}</td>
+                <td>{{ p.categoria }}</td>
+                <td class="num">S/ {{ "%.2f"|format(p.precio) }}</td>
+                <td class="num">{{ p.stock }}</td>
+                {% if es_tecnologico(p) %}
+                  <td>Tecnológico</td><td>Garantía: {{ p.garantia_meses }} meses</td>
+                {% else %}
+                  <td>Accesorio</td><td>Conexión: {{ p.tipo_conexion }}</td>
+                {% endif %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if not productos %}<div class="vacio">El inventario está vacío.</div>{% endif %}
+      </div>
+    </fieldset>
+  </main>
+
+  <script>
+    // Mostrar "Garantía" o "Conexión" según el tipo de producto elegido
+    const garantia = document.getElementById("campo-garantia");
+    const conexion = document.getElementById("campo-conexion");
+    document.querySelectorAll("input[name=tipo]").forEach(radio => {
+      radio.addEventListener("change", () => {
+        const esTec = radio.value === "tecnologico";
+        garantia.hidden = !esTec;
+        conexion.hidden = esTec;
+        document.getElementById("conexion").required = !esTec;
+      });
+    });
+  </script>
+</body>
+</html>
